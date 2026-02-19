@@ -53,8 +53,8 @@
 
     <div class="mb-3">
       <label class="form-label">Event <span class="asterisk">*</span></label>
-      <select name="event" id="event" class="form-select select2" required onchange="validateForm()">
-        <option value="">Pilih Event...</option>
+      <select name="event" id="event" class="form-select select2" disabled required onchange="validateForm()">
+        <option value="">Pilih kota dahulu...</option>
       </select>
     </div>
 
@@ -129,11 +129,16 @@
 
   function updateKecamatanAndDealer() {
     const city = $('#kota').val();
-    if(city) {
-      $('#kecamatan, #dealer').prop('disabled', false);
-      loadOptions('getDistricts', 'kecamatan', { city });
-      loadOptions('getDealers', 'dealer', { city });
+    
+    // Reset dan nonaktifkan dropdown jika kota dikosongkan
+    if(!city) {
+      $('#kecamatan, #dealer, #event').prop('disabled', true).val('').trigger('change');
+      return;
     }
+    $('#kecamatan, #dealer, #event').prop('disabled', false);
+    loadOptions('getDistricts', 'kecamatan', { city });
+    loadOptions('getDealers', 'dealer', { city });
+    loadOptions('getEvents', 'event', { city });
     validateForm();
   }
 
