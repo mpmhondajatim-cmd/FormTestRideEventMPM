@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pendaftaran Test Ride MPM</title>
+  <title>Pendaftaran Test Ride Honda</title>
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  
   <style>
     :root { --honda-red: #E4002B; }
     body { background-color: #f4f4f4; padding: 20px 10px; font-family: 'Segoe UI', sans-serif; }
@@ -15,6 +17,7 @@
     .btn-honda:disabled { background-color: #ccc; }
     .asterisk { color: var(--honda-red); }
     .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: none; justify-content: center; align-items: center; z-index: 9999; }
+    /* Memperbaiki tinggi Select2 agar sesuai dengan Bootstrap */
     .select2-container--default .select2-selection--single { height: 38px; border: 1px solid #ced4da; }
     .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 36px; }
   </style>
@@ -28,9 +31,8 @@
   <form id="testRideForm">
     <div class="mb-3">
       <label class="form-label">Nama Lengkap <span class="asterisk">*</span></label>
-      <input type="text" name="nama" id="nama" class="form-control" placeholder="Nama sesuai KTP" required oninput="validateForm()">
+      <input type="text" name="nama" id="nama" class="form-control" required oninput="validateForm()">
     </div>
-
     <div class="mb-3">
       <label class="form-label">Nomor WhatsApp <span class="asterisk">*</span></label>
       <input type="tel" name="wa" id="wa" class="form-control" placeholder="Contoh: 08123456789" required oninput="cleanNumbers(this); validateForm()">
@@ -39,14 +41,14 @@
     <div class="row">
       <div class="col-md-6 mb-3">
         <label class="form-label">Kota / Kabupaten <span class="asterisk">*</span></label>
-        <select name="kota" id="kota" class="form-select select2" required onchange="updateKecamatanAndDealer()">
-          <option value="">Memuat...</option>
+        <select name="kota" id="kota" class="form-select select2" required onchange="updateDynamicDropdowns()">
+          <option value="">Pilih Kota...</option>
         </select>
       </div>
       <div class="col-md-6 mb-3">
         <label class="form-label">Kecamatan <span class="asterisk">*</span></label>
         <select name="kecamatan" id="kecamatan" class="form-select select2" disabled required onchange="validateForm()">
-          <option value="">Pilih Kota dahulu...</option>
+          <option value="">Pilih...</option>
         </select>
       </div>
     </div>
@@ -57,7 +59,6 @@
         <option value="">Pilih kota dahulu...</option>
       </select>
     </div>
-
     <div class="mb-3">
       <label class="form-label">Tipe Motor Test Ride <span class="asterisk">*</span></label>
       <select name="motorTestRide" id="motorTestRide" class="form-select select2" required onchange="validateForm()">
@@ -71,27 +72,25 @@
         <option value="">Pilih kota dahulu...</option>
       </select>
     </div>
-
     <div class="mb-3">
       <label class="form-label">ID FLP (Opsional)</label>
       <input type="text" name="idFlp" id="idFlp" class="form-control" placeholder="Hanya angka" oninput="cleanNumbers(this)">
     </div>
-
     <div class="mb-3">
       <label class="form-label">Tipe Motor Sebelumnya <span class="asterisk">*</span></label>
-      <input type="text" name="motorSebelumnya" id="motorSebelumnya" class="form-control" placeholder="Contoh: Honda Vario 125" required oninput="validateForm()">
+      <input type="text" name="motorSebelumnya" id="motorSebelumnya" class="form-control" required oninput="validateForm()">
     </div>
 
     <div class="bg-light p-3 small mb-3 border rounded">
-      <b>Kebijakan Privasi:</b> Dengan mengisi formulir ini, Anda memberikan izin kepada tim kami untuk menghubungi Anda melalui WhatsApp atau telepon terkait informasi produk, promo, dan simulasi kredit motor. Kami berkomitmen untuk menjaga keamanan data pribadi Anda dan tidak akan menyebarluaskannya kepada pihak yang tidak berkepentingan.
+      <b>Kebijakan Privasi:</b> Kami menjaga kerahasiaan data Anda. Dengan mendaftar, Anda setuju dihubungi terkait informasi Test Ride dan promo Honda[cite: 43].
     </div>
 
     <div class="form-check mb-4">
       <input class="form-check-input" type="checkbox" id="agree" required onchange="validateForm()">
-      <label class="form-check-label small" for="agree"><b>Saya menyetujui kebijakan penggunaan data</b> <span class="asterisk">*</span></label>
+      <label class="form-check-label small" for="agree">Saya menyetujui kebijakan data <span class="asterisk">*</span></label>
     </div>
 
-    <button type="submit" id="submitBtn" class="btn btn-honda" disabled>DAFTAR TEST RIDE SEKARANG</button>
+    <button type="submit" id="submitBtn" class="btn btn-honda" disabled>KIRIM PENDAFTARAN</button>
   </form>
 </div>
 
@@ -99,18 +98,16 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
-  // GANTI DENGAN URL WEB APP ANDA
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxMjCFkf7Dfi6E_NvNj6py6B6xqdLZHZS8XP9Aya-U1qbWynQfaGl_Yy4CXTinodKb3/exec";
+  // GANTI URL INI DENGAN URL WEB APP ANDA DARI GOOGLE SCRIPT [cite: 45]
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymJDG7MEoWQyooWQqqPxEaVPenaCdHajb7KcD1XfixF6mczi569Fnw9C6B2zE2DURh/exec";
 
   $(document).ready(function() {
     $('.select2').select2({ width: '100%' });
-    
-    // Load data dropdown awal
     loadOptions('getCities', 'kota');
-    loadOptions('getEvents', 'event');
     loadOptions('getMotorTestRide', 'motorTestRide');
   });
 
+  // Pembersihan karakter non-angka secara otomatis [cite: 38]
   function cleanNumbers(input) {
     input.value = input.value.replace(/\D/g, '');
   }
@@ -127,18 +124,16 @@
     } catch (e) { console.error(e); }
   }
 
-  function updateKecamatanAndDealer() {
+  function updateDynamicDropdowns() {
     const city = $('#kota').val();
-    
-    // Reset dan nonaktifkan dropdown jika kota dikosongkan
-    if(!city) {
+    if(city) {
+      $('#kecamatan, #dealer, #event').prop('disabled', false);
+      loadOptions('getDistricts', 'kecamatan', { city });
+      loadOptions('getDealers', 'dealer', { city });
+      loadOptions('getEvents', 'event', { city }); // Filter event berdasarkan kota [cite: 24]
+    } else {
       $('#kecamatan, #dealer, #event').prop('disabled', true).val('').trigger('change');
-      return;
     }
-    $('#kecamatan, #dealer, #event').prop('disabled', false);
-    loadOptions('getDistricts', 'kecamatan', { city });
-    loadOptions('getDealers', 'dealer', { city });
-    loadOptions('getEvents', 'event', { city });
     validateForm();
   }
 
@@ -155,17 +150,13 @@
     const formData = Object.fromEntries(new FormData(this));
 
     try {
-      await fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify(formData)
-      });
-      alert("Terima kasih! Pendaftaran Test Ride Anda telah berhasil.");
+      await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(formData) });
+      alert("Pendaftaran Berhasil!");
       this.reset();
       $('.select2').val('').trigger('change');
       validateForm();
     } catch (e) {
-      alert("Terjadi kesalahan saat mengirim data.");
+      alert("Gagal mengirim data.");
     } finally {
       $('#loader').hide();
     }
