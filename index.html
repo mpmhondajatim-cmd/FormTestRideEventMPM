@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pendaftaran Test Ride Honda</title>
+  <!-- Mulai koneksi ke server GAS lebih awal -->
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <style>
@@ -32,38 +35,38 @@
   <form id="testRideForm">
     <div class="mb-3">
       <label class="form-label">Nama Lengkap <span class="asterisk">*</span></label>
-      <input type="text" name="nama" id="nama" class="form-control" required oninput="validateForm()">
+      <input type="text" name="nama" id="nama" class="form-control" required>
     </div>
     <div class="mb-3">
       <label class="form-label">Nomor WhatsApp <span class="asterisk">*</span></label>
-      <input type="tel" name="wa" id="wa" class="form-control" placeholder="Hanya angka" required oninput="cleanNumbers(this); validateForm()">
+      <input type="tel" name="wa" id="wa" class="form-control num-only" placeholder="Hanya angka" required>
     </div>
 
     <div class="row">
       <div class="col-md-6 mb-3">
         <label class="form-label">Kota / Kabupaten <span class="asterisk">*</span></label>
-        <select name="kota" id="kota" class="form-select select2" required onchange="updateDynamicDropdowns()">
+        <select name="kota" id="kota" class="form-select select2" required>
           <option value="">Pilih Kota...</option>
         </select>
       </div>
       <div class="col-md-6 mb-3">
         <label class="form-label">Kecamatan <span class="asterisk">*</span></label>
-        <select name="kecamatan" id="kecamatan" class="form-select select2" disabled required onchange="validateForm()">
-          <option value="">Pilih...</option>
+        <select name="kecamatan" id="kecamatan" class="form-select select2" disabled required>
+          <option value="">Pilih kota dahulu...</option>
         </select>
       </div>
     </div>
 
     <div class="mb-3">
       <label class="form-label">Event <span class="asterisk">*</span></label>
-      <select name="event" id="event" class="form-select select2" disabled required onchange="validateForm()">
+      <select name="event" id="event" class="form-select select2" disabled required>
         <option value="">Pilih kota dahulu...</option>
       </select>
     </div>
 
     <div class="mb-3">
       <label class="form-label">Tipe Motor Test Ride <span class="asterisk">*</span></label>
-      <select name="motorTestRide" id="motorTestRide" class="form-select select2" required onchange="validateForm()">
+      <select name="motorTestRide" id="motorTestRide" class="form-select select2" required>
         <option value="">Pilih Motor...</option>
       </select>
     </div>
@@ -77,12 +80,12 @@
 
     <div class="mb-3">
       <label class="form-label">ID FLP (Opsional)</label>
-      <input type="text" name="idFlp" id="idFlp" class="form-control" placeholder="Hanya angka" oninput="cleanNumbers(this)">
+      <input type="text" name="idFlp" id="idFlp" class="form-control num-only" placeholder="Hanya angka">
     </div>
 
     <div class="mb-3">
       <label class="form-label">Tipe Motor Sebelumnya <span class="asterisk">*</span></label>
-      <input type="text" name="motorSebelumnya" id="motorSebelumnya" class="form-control" required oninput="validateForm()">
+      <input type="text" name="motorSebelumnya" id="motorSebelumnya" class="form-control" required>
     </div>
 
     <div class="bg-light p-3 small mb-3 border rounded">
@@ -90,7 +93,7 @@
     </div>
 
     <div class="form-check mb-4">
-      <input class="form-check-input" type="checkbox" id="agree" required onchange="validateForm()">
+      <input class="form-check-input" type="checkbox" id="agree" required>
       <label class="form-check-label small" for="agree">Saya menyetujui kebijakan data <span class="asterisk">*</span></label>
     </div>
 
@@ -100,70 +103,144 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<!-- Master data statis (wilayah, dealer, motor). Ubah ?v= setiap kali master-data.js diupdate -->
+<script src="master-data.js?v=2026-10-17"></script>
 
 <script>
   // GANTI DENGAN URL WEB APP ANDA
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxMjCFkf7Dfi6E_NvNj6py6B6xqdLZHZS8XP9Aya-U1qbWynQfaGl_Yy4CXTinodKb3/exec"; 
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxMjCFkf7Dfi6E_NvNj6py6B6xqdLZHZS8XP9Aya-U1qbWynQfaGl_Yy4CXTinodKb3/exec";
 
-  $(document).ready(function() {
+  const MASTER = window.MASTER_DATA || { wilayah: {}, dealer: {}, motor: [] };
+  let eventMapPromise = null; // semua event diambil SEKALI saat halaman dibuka
+  let cityReqId = 0;          // mencegah hasil kota lama menimpa kota baru
+
+  $(document).ready(function () {
     $('.select2').select2({ width: '100%' });
-    loadOptions('getCities', 'kota');
-    loadOptions('getMotorTestRide', 'motorTestRide');
+
+    $('#kota').on('change', onCityChange);
+    $('#kecamatan, #event, #motorTestRide').on('change', validateForm);
+    $('#nama, #motorSebelumnya').on('input', validateForm);
+    $('.num-only').on('input', function () { this.value = this.value.replace(/\D/g, ''); validateForm(); });
+    $('#agree').on('change', validateForm);
+    $('#testRideForm').on('submit', onSubmit);
+
+    if (!window.MASTER_DATA) alert('Data wilayah gagal dimuat. Silakan muat ulang halaman.');
+
+    // Langsung tampil, tanpa request ke server
+    fillSelect('kota', Object.keys(MASTER.wilayah).sort(), 'Pilih Kota...');
+    if (MASTER.motor && MASTER.motor.length) {
+      fillSelect('motorTestRide', MASTER.motor, 'Pilih Motor...');
+    } else {
+      loadMotorFromServer(); // cadangan bila motor di master-data.js masih kosong
+    }
+
+    // Ambil semua event di background selagi user mengisi nama & WA
+    eventMapPromise = getJSON(`${SCRIPT_URL}?action=getEvents`)
+      .then(d => (d && !Array.isArray(d) && !d.error) ? d : null)
+      .catch(() => null);
   });
 
-  function cleanNumbers(input) {
-    input.value = input.value.replace(/\D/g, '');
+  async function getJSON(url) {
+    const res = await fetch(url);
+    return res.json();
   }
 
-  async function loadOptions(action, elementId, params = {}) {
-    const query = new URLSearchParams({ action, ...params }).toString();
+  async function loadMotorFromServer() {
+    fillSelect('motorTestRide', [], 'Memuat...');
     try {
-      const response = await fetch(`${SCRIPT_URL}?${query}`);
-      const data = await response.json();
-      const $select = $(`#${elementId}`);
-      $select.empty().append('<option value="">Pilih...</option>');
-      data.forEach(item => $select.append(new Option(item, item)));
-      $select.trigger('change');
-    } catch (e) { console.error(e); }
+      const list = await getJSON(`${SCRIPT_URL}?action=getMotorTestRide`);
+      fillSelect('motorTestRide', Array.isArray(list) ? list : [], 'Pilih Motor...');
+    } catch (e) {
+      console.error(e);
+      fillSelect('motorTestRide', [], 'Gagal memuat, muat ulang halaman');
+    }
   }
 
-  function updateDynamicDropdowns() {
+  /** Isi dropdown tanpa memicu handler change (cukup refresh tampilan Select2). */
+  function fillSelect(id, items, placeholder = 'Pilih...') {
+    const $s = $('#' + id);
+    $s.empty().append(new Option(placeholder, ''));
+    (items || []).forEach(item => $s.append(new Option(item, item)));
+    $s.val('').trigger('change.select2');
+  }
+
+  /* ---------- KOTA → kecamatan, dealer & event ---------- */
+  async function onCityChange() {
     const city = $('#kota').val();
-    if(city) {
-      $('#kecamatan, #dealer, #event').prop('disabled', false);
-      loadOptions('getDistricts', 'kecamatan', { city });
-      loadOptions('getDealers', 'dealer', { city });
-      loadOptions('getEvents', 'event', { city });
-    } else {
-      $('#kecamatan, #dealer, #event').prop('disabled', true).val('').trigger('change');
+    const reqId = ++cityReqId;
+
+    if (!city) {
+      ['kecamatan', 'dealer', 'event'].forEach(id => fillSelect(id, [], 'Pilih kota dahulu...'));
+      $('#kecamatan, #dealer, #event').prop('disabled', true);
+      validateForm();
+      return;
     }
+
+    // Dari master-data.js → instan
+    const dealers = MASTER.dealer[city.toUpperCase()] || [];
+    fillSelect('kecamatan', MASTER.wilayah[city]);
+    fillSelect('dealer', dealers, dealers.length ? 'Pilih...' : 'Belum ada dealer di kota ini');
+    $('#kecamatan').prop('disabled', false);
+    $('#dealer').prop('disabled', !dealers.length);
+
+    // Event: biasanya sudah ter-load di background, jadi juga instan
+    fillSelect('event', [], 'Memuat event...');
+    $('#event').prop('disabled', true);
     validateForm();
+
+    const events = await getEventsForCity(city);
+    if (reqId !== cityReqId) return; // user sudah ganti kota lagi
+    fillSelect('event', events);
+    $('#event').prop('disabled', false);
+    validateForm();
+  }
+
+  async function getEventsForCity(city) {
+    const map = await eventMapPromise;
+    if (map) return map[city.toUpperCase()] || ['Event Lainnya'];
+    // Cadangan: request per kota bila pengambilan semua event gagal
+    try {
+      const list = await getJSON(`${SCRIPT_URL}?action=getEvents&city=${encodeURIComponent(city)}`);
+      if (Array.isArray(list)) return list;
+    } catch (e) { console.error(e); }
+    return ['Event Lainnya'];
   }
 
   function validateForm() {
     const fields = ['nama', 'wa', 'kota', 'kecamatan', 'event', 'motorTestRide', 'motorSebelumnya'];
-    const allFilled = fields.every(id => $(`#${id}`).val() && $(`#${id}`).val().trim() !== "");
+    const allFilled = fields.every(id => ($('#' + id).val() || '').trim() !== '');
     const agreed = $('#agree').is(':checked');
     $('#submitBtn').prop('disabled', !(allFilled && agreed));
   }
 
-  $('#testRideForm').on('submit', async function(e) {
+  /* ---------- SUBMIT: respons server dibaca, jadi gagal benar-benar terdeteksi ---------- */
+  async function onSubmit(e) {
     e.preventDefault();
     $('#loader').css('display', 'flex');
+    $('#submitBtn').prop('disabled', true);
     const formData = Object.fromEntries(new FormData(this));
 
     try {
-      await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(formData) });
-      alert("Pendaftaran Berhasil!");
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // tanpa preflight CORS
+        body: JSON.stringify(formData)
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Gagal');
+
+      alert('Pendaftaran Berhasil!');
       this.reset();
-      $('.select2').val('').trigger('change');
-      validateForm();
-    } catch (e) {
-      alert("Gagal mengirim data.");
+      $('#motorTestRide').val('').trigger('change.select2');
+      $('#kota').val('').trigger('change'); // otomatis reset kecamatan/dealer/event
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengirim data. Silakan coba lagi.');
     } finally {
       $('#loader').hide();
+      validateForm();
     }
-  });
+  }
 </script>
 </body>
 </html>
