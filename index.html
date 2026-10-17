@@ -111,8 +111,17 @@
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxMjCFkf7Dfi6E_NvNj6py6B6xqdLZHZS8XP9Aya-U1qbWynQfaGl_Yy4CXTinodKb3/exec";
 
   const MASTER = window.MASTER_DATA || { wilayah: {}, dealer: {}, motor: [] };
+  const EVENT_STORAGE_KEY = 'testride_events_v1';
+  let eventMap = readLocal(EVENT_STORAGE_KEY); // event dari kunjungan sebelumnya (tampil instan)
   let eventMapPromise = null; // semua event diambil SEKALI saat halaman dibuka
   let cityReqId = 0;          // mencegah hasil kota lama menimpa kota baru
+
+  function readLocal(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
+  }
+  function writeLocal(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  }
 
   $(document).ready(function () {
     $('.select2').select2({ width: '100%' });
@@ -134,11 +143,31 @@
       loadMotorFromServer(); // cadangan bila motor di master-data.js masih kosong
     }
 
-    // Ambil semua event di background selagi user mengisi nama & WA
+    // Ambil semua event terbaru di background selagi user mengisi nama & WA
     eventMapPromise = getJSON(`${SCRIPT_URL}?action=getEvents`)
-      .then(d => (d && !Array.isArray(d) && !d.error) ? d : null)
-      .catch(() => null);
+      .then(d => {
+        if (!d || Array.isArray(d) || d.error) {
+          console.warn('getEvents (semua) gagal — cek deployment GAS sudah versi baru:', d);
+          return null;
+        }
+        eventMap = d;
+        writeLocal(EVENT_STORAGE_KEY, d);
+        refreshEventDropdown(); // perbarui bila user sudah memilih kota dari data cache
+        return d;
+      })
+      .catch(err => { console.warn('getEvents gagal:', err); return null; });
   });
+
+  /** Data event terbaru datang → perbarui dropdown kota yang sedang dipilih, tanpa menghapus pilihan user. */
+  function refreshEventDropdown() {
+    const city = $('#kota').val();
+    if (!city || $('#event').prop('disabled')) return;
+    const selected = $('#event').val();
+    const list = eventMap[city.toUpperCase()] || ['Event Lainnya'];
+    fillSelect('event', list);
+    if (selected && list.includes(selected)) $('#event').val(selected).trigger('change.select2');
+    validateForm();
+  }
 
   async function getJSON(url) {
     const res = await fetch(url);
@@ -196,6 +225,9 @@
   }
 
   async function getEventsForCity(city) {
+    // Instan: pakai data yang sudah ada (hasil background load atau kunjungan sebelumnya)
+    if (eventMap) return eventMap[city.toUpperCase()] || ['Event Lainnya'];
+    // Kunjungan pertama & data belum datang: tunggu request background (bukan request baru)
     const map = await eventMapPromise;
     if (map) return map[city.toUpperCase()] || ['Event Lainnya'];
     // Cadangan: request per kota bila pengambilan semua event gagal
